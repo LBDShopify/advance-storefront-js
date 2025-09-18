@@ -14,8 +14,7 @@ async function fetchSizeChart() {
             },
             body: JSON.stringify({productId}) // Include request body
         });
-
-        if (response.status === 200) {
+        if (response.ok) {
             const text = await response.text();
             const data = JSON.parse(text);
             updateOnUI(data);
@@ -38,22 +37,40 @@ function updateOnUI(data) {
     }
 
     const targetSelectors = [
-        ...productDescriptionSelectors,
-        ...titleSelectors
+        ".product__description",
+        ".product-description",
+        ".product-details",
+        ".product-single__description",
+
+        ".product__title",
+        ".product__title h1",
+        ".product-single__title",
+
+        /* Price & form areas */
+        ".price__container",
+        ".product-single__price",
+        "#ProductPrice",
+
+        ".product-form__buttons",
+        ".main-product__form",
+        ".product-single__form",
+        ".add-to-cart",
+        ".product-form__quantity",
+        ".product__share",
     ];
 
     for (let selector of targetSelectors) {
         const targetElement = document.querySelector(selector);
         if (targetElement) {
             // Create a wrapper div for icon + text
-            const wrapperIconTextDisplay = document.createElement("div");
-            if (wrapperIconTextDisplay && wrapperIconTextDisplay.style) {
-                wrapperIconTextDisplay.style.display = "inline-flex";
-                wrapperIconTextDisplay.style.width = "fit-content";
-                wrapperIconTextDisplay.style.alignItems = "center";
-                wrapperIconTextDisplay.style.gap = "5px";
-                wrapperIconTextDisplay.style.cursor = "pointer";
-                wrapperIconTextDisplay.style.marginTop = "0px"; // Adds spacing between the target element and wrapper
+            const wrapper = document.createElement("div");
+            if (wrapper && wrapper.style) {
+                wrapper.style.display = "inline-flex";
+                wrapper.style.width = "fit-content";
+                wrapper.style.alignItems = "center";
+                wrapper.style.gap = "5px";
+                wrapper.style.cursor = "pointer";
+                wrapper.style.marginTop = "10px"; // Adds spacing between the target element and wrapper
             }
 
             // Create the icon element
@@ -77,14 +94,14 @@ function updateOnUI(data) {
             }
 
             // Append icon and text to wrapper
-            wrapperIconTextDisplay.appendChild(icon);
-            wrapperIconTextDisplay.appendChild(sizeChartText);
+            wrapper.appendChild(icon);
+            wrapper.appendChild(sizeChartText);
 
             // Insert wrapper **after** the targetElement (instead of inside it)
-            targetElement.parentNode.insertBefore(wrapperIconTextDisplay, targetElement.nextSibling);
+            targetElement.parentNode.insertBefore(wrapper, targetElement.nextSibling);
 
             // Add click event to open modal
-            wrapperIconTextDisplay.addEventListener("click", () => showSizeChartModal(data.sizeChartSetting, data.sizeChart));
+            wrapper.addEventListener("click", () => showSizeChartModal(data.sizeChartSetting, data.sizeChart));
             break;
         }
     }
@@ -93,7 +110,7 @@ function updateOnUI(data) {
 function showSizeChartModal(sizeChartSetting, sizeChart) {
     let overlay = document.getElementById("sizeChartOverlay");
     let modal = document.getElementById("sizeChartModal");
-    document.body.style.overflow = "hidden";
+    document.body.style.overflow = "hidden"; // ðŸ”’ lock background scroll
 
     // Create overlay if not exists
     if (!overlay) {
@@ -144,8 +161,6 @@ function showSizeChartModal(sizeChartSetting, sizeChart) {
             contentBox.style.position = "relative";
             contentBox.style.maxHeight = "100vh"; // Allow scroll if content is too tall
             contentBox.style.overflowY = "auto";
-            contentBox.style.display = "inline-block"; // 👈 shrink around widest child
-            contentBox.style.width = "auto";
         }
         modal.appendChild(contentBox);
     }
@@ -157,14 +172,26 @@ function showSizeChartModal(sizeChartSetting, sizeChart) {
     // Create table
     const table = document.createElement("table");
     if (table && table.style) {
-        table.style.width = "auto";
+        table.style.width = "100%";
         table.style.borderCollapse = "collapse";
         table.style.textAlign = "center";
         table.style.border = `1px solid ${sizeChartSetting.modalBorderColor}`;
         table.style.tableLayout = "fixed";
     }
 
+    // Calculate modal width
+    const columnCount = sizeChart.sizesData[0].length;
+    const cellWidth = 120;
+
     const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    if (isMobile) {
+        contentBox.style.width = "100vw";
+        contentBox.style.overflowX = "auto"; // allow scroll inside modal
+    } else {
+        const modalWidth = columnCount * cellWidth + 120;
+        contentBox.style.width = `${modalWidth}px`;
+    }
+
     const colorMouseEnter = "#3BB9FF"
     const colorEventRow = "#C9DFEC"
     const colorOddRow = "#ffffff"
@@ -180,7 +207,7 @@ function showSizeChartModal(sizeChartSetting, sizeChart) {
                 cell.style.border = `1px solid ${sizeChartSetting.modalBorderColor}`;
                 cell.style.padding = "8px";
                 cell.style.fontWeight = rowIndex === 0 ? "bold" : "normal";
-                cell.style.minWidth = "90px";
+                cell.style.width = "120px";
                 cell.style.color = sizeChartSetting.modalTextColor;
                 cell.style.textAlign = "center";
                 cell.style.verticalAlign = "middle"; // optional, for vertical centering
@@ -202,28 +229,13 @@ function showSizeChartModal(sizeChartSetting, sizeChart) {
     const scrollWrapper = document.createElement("div");
     Object.assign(scrollWrapper.style, {
         overflowX: "auto",
-        width: "auto",
         maxWidth: "100%",
         WebkitOverflowScrolling: "touch",
-        display: "inline-block",   // 👈 makes it shrink to fit content
     });
 
+    table.style.minWidth = `${columnCount * cellWidth}px`; // force horizontal overflow if needed
     scrollWrapper.appendChild(table);
     contentBox.appendChild(scrollWrapper);
-
-    // let browser paint first
-    requestAnimationFrame(() => {
-        if (isMobile) {
-            contentBox.style.width = "100vw";
-            contentBox.style.overflowX = "auto"; // allow scroll inside modal
-        } else {
-            const tableWidth = scrollWrapper.scrollWidth || scrollWrapper.getBoundingClientRect().width;
-            // check if vertical scrollbar exists
-            const hasVerticalScrollbar = contentBox.scrollHeight > contentBox.clientHeight;
-            const extra = hasVerticalScrollbar ? 55 : 40;
-            contentBox.style.width = (tableWidth + extra) + "px";
-        }
-    });
 
     const footerDiv = document.createElement("div");
     footerDiv.id = "sizeChartFooter";
