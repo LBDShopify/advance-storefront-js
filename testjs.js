@@ -1,3 +1,5 @@
+// https://raw.githubusercontent.com/LBDShopify/advance-storefront-js/refs/heads/master/testjs.js
+
 <script>
     function bssLoadScripts(src, callback, isDefer = false) {
     const scriptTag = document.createElement('script');
